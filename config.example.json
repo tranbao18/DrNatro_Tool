@@ -1,0 +1,34 @@
+{
+  "postUrl": "",
+  "groupUrl": "https://www.facebook.com/groups/1644256277377552",
+  "sheetId": "1qezyy3dPl9a9KrNh7XO-t7YfeYJ3-ZTmy31E_nxUbwQ",
+  "serviceAccountFile": "./service-account.json",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "freezeAt": "2026-10-21T00:00:00+07:00",
+  "intervalMinutes": 60,
+  "finalRunLeadMinutes": 15,
+  "rules": {
+    "requiredTags": 5,
+    "countSelfTag": false,
+    "includeReplies": false
+  },
+  "browser": {
+    "headless": false,
+    "profileDir": "./data/profile",
+    "locale": "vi-VN",
+    "channel": ""
+  },
+  "limits": {
+    "maxExpandClicks": 400,
+    "expandReplies": true,
+    "maxMemberChecksPerRun": 60,
+    "memberCacheHours": 24,
+    "minDelayMs": 1500,
+    "maxDelayMs": 4000,
+    "minCommentRatio": 0.8
+  },
+  "memberCheck": "auto",
+  "debug": {
+    "dumpGraphql": false
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "data": {
+    "node": {
+      "__typename": "Feedback",
+      "comment_rendering_instance_for_feed_location": {
+        "comments": {
+          "total_count": 3,
+          "edges": [
+            {
+              "node": {
+                "__typename": "Comment",
+                "id": "Y29tbWVudDo5OTk5XzExMTEx",
+                "legacy_fbid": "11111",
+                "depth": 0,
+                "author": { "__typename": "User", "id": "1001", "name": "Nguyễn Văn A", "url": "https://www.facebook.com/groups/1644256277377552/user/1001/" },
+                "body": {
+                  "text": "Tag Bạn B Bạn C Bạn D Bạn E Bạn F tham gia nào",
+                  "ranges": [
+                    { "entity": { "__typename": "User", "id": "2001", "name": "Bạn B" }, "offset": 4, "length": 5 },
+                    { "entity": { "__typename": "User", "id": "2002", "name": "Bạn C" }, "offset": 10, "length": 5 },
+                    { "entity": { "__typename": "User", "id": "2003", "name": "Bạn D" }, "offset": 16, "length": 5 },
+                    { "entity": { "__typename": "User", "id": "2004", "name": "Bạn E" }, "offset": 22, "length": 5 },
+                    { "entity": { "__typename": "User", "id": "2005", "name": "Bạn F" }, "offset": 28, "length": 5 }
+                  ]
+                },
+                "created_time": 1759500000,
+                "feedback": {
+                  "id": "ZmVlZGJhY2s6MTExMTE=",
+                  "reactors": { "count": 12 },
+                  "replies_fields": { "total_count": 3 }
+                },
+                "url": "https://www.facebook.com/groups/1644256277377552/posts/9999/?comment_id=11111"
+              }
+            },
+            {
+              "node": {
+                "__typename": "Comment",
+                "id": "Y29tbWVudDo5OTk5XzIyMjIy",
+                "legacy_fbid": "22222",
+                "depth": 0,
+                "author": { "__typename": "User", "id": "1002", "name": "Trần Thị B" },
+                "body": {
+                  "text": "Tag Bạn B Bạn B Bạn C và chính mình",
+                  "ranges": [
+                    { "entity": { "__typename": "User", "id": "2001" }, "offset": 4, "length": 5 },
+                    { "entity": { "__typename": "User", "id": "2001" }, "offset": 10, "length": 5 },
+                    { "entity": { "__typename": "User", "id": "2002" }, "offset": 16, "length": 5 },
+                    { "entity": { "__typename": "User", "id": "1002" }, "offset": 22, "length": 5 },
+                    { "entity": { "__typename": "Page", "id": "3001" }, "offset": 30, "length": 5 }
+                  ]
+                },
+                "created_time": 1759500100,
+                "feedback": {
+                  "id": "ZmVlZGJhY2s6MjIyMjI=",
+                  "reaction_count": { "count": 40 },
+                  "comments_count_summary_renderer": { "feedback": { "comment_rendering_instance": { "comments": { "total_count": 1 } } } }
+                }
+              }
+            },
+            {
+              "node": {
+                "__typename": "Comment",
+                "id": "Y29tbWVudDo5OTk5XzMzMzMz",
+                "depth": 1,
+                "comment_parent": { "id": "Y29tbWVudDo5OTk5XzExMTEx" },
+                "author": { "__typename": "User", "id": "1003", "name": "Lê C" },
+                "body": { "text": "reply", "ranges": [] },
+                "created_time": 1759500200,
+                "feedback": { "id": "x", "top_reactions": { "edges": [ { "reaction_count": 2 }, { "reaction_count": 1 } ] }, "total_comment_count": 0 }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

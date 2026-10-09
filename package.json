@@ -1,0 +1,22 @@
+{
+  "name": "drnatro-minigame-tool",
+  "version": "1.0.0",
+  "description": "Quét bình luận bài minigame trong group Facebook, lọc theo điều kiện và ghi kết quả vào Google Sheet",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "login": "node src/index.js login",
+    "start": "node src/index.js run",
+    "once": "node src/index.js run",
+    "watch": "node src/index.js watch",
+    "check-sheet": "node src/index.js check-sheet",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "google-auth-library": "^11.1.0",
+    "playwright": "^1.56.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "data": {
+    "node": {
+      "__typename": "Feedback",
+      "reshares": {
+        "edges": [
+          {
+            "node": {
+              "__typename": "Story",
+              "id": "s1",
+              "actors": [ { "__typename": "User", "id": "1001", "name": "Nguyễn Văn A", "url": "https://www.facebook.com/profile.php?id=1001" } ],
+              "privacy_scope": { "description": "Công khai", "icon_image": { "name": "public" } }
+            }
+          },
+          {
+            "node": {
+              "__typename": "Story",
+              "id": "s2",
+              "actors": [ { "__typename": "User", "id": "1005", "name": "Phạm E" } ],
+              "privacy_scope": { "description": "Bạn bè", "icon_image": { "name": "friends" } }
+            }
+          },
+          {
+            "node": { "__typename": "User", "id": "1006", "name": "Hoàng F" }
+          }
+        ]
+      }
+    }
+  }
+}
