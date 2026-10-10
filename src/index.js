@@ -4,12 +4,15 @@
 //   npm start            : chạy quét một lần
 //   npm run watch        : chạy lặp lại mỗi intervalMinutes phút
 //   npm run check-sheet  : kiểm tra kết nối Google Sheet
-import { loadConfig, ROOT_DIR } from './config.js';
+//   npm run ui           : mở giao diện quản lý trên trình duyệt
+import { exec } from 'node:child_process';
+import { loadConfig, ROOT_DIR, CONFIG_PATH } from './config.js';
 import { createLogger } from './logger.js';
 import { launchBrowser, getLoggedInUserId } from './browser.js';
 import { createSheetsClient, TABS } from './sheets.js';
 import { runOnce, isFrozen } from './run.js';
 import { sleep, formatDateTime } from './util.js';
+import { createUiServer } from './ui/server.js';
 
 const command = process.argv[2] || 'help';
 
@@ -68,6 +71,30 @@ async function watch(config, logger) {
   }
 }
 
+function openBrowser(url) {
+  const cmd = process.platform === 'win32' ? `start "" "${url}"` : process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`;
+  exec(cmd, () => {});
+}
+
+async function ui(config, logger) {
+  const sheets = createSheetsClient(config.serviceAccountPath);
+  const server = createUiServer({ config, rootDir: ROOT_DIR, configPath: CONFIG_PATH, sheets, logger });
+  const url = `http://127.0.0.1:${config.ui.port}/`;
+  try {
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(config.ui.port, '127.0.0.1', resolve);
+    });
+  } catch (err) {
+    if (err.code !== 'EADDRINUSE') throw err;
+    logger.warn(`Cổng ${config.ui.port} đang được dùng, có thể giao diện đã mở ở cửa sổ khác: ${url}`);
+    if (config.ui.openBrowser) openBrowser(url);
+    return;
+  }
+  logger.info(`Giao diện quản lý: ${url} (giữ cửa sổ này mở trong lúc dùng, nhấn Ctrl+C để tắt).`);
+  if (config.ui.openBrowser) openBrowser(url);
+}
+
 function help() {
   console.log(`DrNatro Minigame Tool
 Lệnh:
@@ -75,6 +102,7 @@ Lệnh:
   npm run check-sheet  Kiểm tra kết nối Google Sheet
   npm start            Quét một lần và ghi sheet
   npm run watch        Chạy lặp mỗi intervalMinutes phút (mặc định 60)
+  npm run ui           Mở giao diện quản lý trên trình duyệt
   npm test             Chạy kiểm thử logic
 `);
 }
@@ -100,6 +128,9 @@ async function main() {
     }
     case 'watch':
       await watch(config, logger);
+      break;
+    case 'ui':
+      await ui(config, logger);
       break;
     default:
       help();

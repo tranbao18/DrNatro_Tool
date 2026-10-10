@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupByUser, buildRecords, countTags, normalizeManual, STATUS, summarize } from '../src/rules.js';
+import { groupByUser, buildRecords, decideStatus, countTags, normalizeManual, STATUS, summarize } from '../src/rules.js';
 
 const RULES = { requiredTags: 5, countSelfTag: false, includeReplies: false };
 
@@ -99,6 +99,17 @@ test('buildRecords xếp trạng thái theo thành viên, share và duyệt tay'
   assert.match(rejected[0].reason, /Tag 2\/5/);
 
   assert.deepEqual(summarize(records), { [STATUS.QUALIFIED]: 2, [STATUS.PENDING]: 1, [STATUS.REJECTED]: 2 });
+});
+
+test('decideStatus ưu tiên duyệt tay rồi mới tới thành viên và share', () => {
+  const base = { member: 'member', shareAuto: 'shared', sharesAvailable: true };
+  assert.equal(decideStatus({ ...base, manualDecision: '' }).status, STATUS.QUALIFIED);
+  assert.equal(decideStatus({ ...base, manualDecision: 'LOẠI' }).status, STATUS.REJECTED);
+  assert.equal(decideStatus({ ...base, member: 'not_member', manualDecision: 'OK' }).status, STATUS.QUALIFIED);
+  assert.equal(decideStatus({ ...base, member: 'not_member', manualDecision: '' }).status, STATUS.REJECTED);
+  const priv = decideStatus({ ...base, shareAuto: 'shared_private', sharePrivacy: 'Bạn bè', manualDecision: '' });
+  assert.equal(priv.status, STATUS.PENDING);
+  assert.match(priv.reasons.join(), /"Bạn bè"/);
 });
 
 test('buildRecords báo chưa đọc được danh sách share khi hộp thoại không mở', () => {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseManualColumns, mergeManual, buildMainRows, mergeHistory, toCell, MAIN_HEADER, HISTORY_HEADER, COL } from '../src/sheets.js';
+import { parseManualColumns, mergeManual, buildManualUpdate, columnLetter, buildMainRows, mergeHistory, toCell, MAIN_HEADER, HISTORY_HEADER, COL } from '../src/sheets.js';
 import { STATUS } from '../src/rules.js';
 
 const TZ = 'Asia/Ho_Chi_Minh';
@@ -77,6 +77,22 @@ test('mergeHistory cập nhật dòng cùng ngày và thêm dòng mới', () => 
   assert.deepEqual(merged[1], existing[1]);
 });
 
+test('buildManualUpdate tìm dòng theo User ID kể cả khi team đổi vị trí cột', () => {
+  assert.deepEqual([0, 9, 25, 26, 27, 51, 52].map(columnLetter), ['A', 'J', 'Z', 'AA', 'AB', 'AZ', 'BA']);
+  const header = ['Trạng thái', 'Ghi chú duyệt', 'User ID', 'Lý do / ghi chú tự động', 'Duyệt tay (OK / LOẠI)'];
+  const rows = [header, [STATUS.PENDING, '', '1001'], [STATUS.PENDING, '', '1002']];
+  const update = buildManualUpdate(rows, '1002', { decision: 'OK', note: '', status: STATUS.QUALIFIED, reasons: ['Duyệt tay: OK'] });
+  assert.equal(update.rowNumber, 3);
+  assert.deepEqual(update.data, [
+    { range: "'Danh sách'!E3", values: [["'OK"]] },
+    { range: "'Danh sách'!B3", values: [['']] },
+    { range: "'Danh sách'!A3", values: [["'ĐỦ ĐIỀU KIỆN"]] },
+    { range: "'Danh sách'!D3", values: [["'Duyệt tay: OK"]] },
+  ]);
+  assert.equal(buildManualUpdate(rows, '9999', { decision: 'OK', note: '' }), null);
+  assert.equal(buildManualUpdate([], '1001', { decision: 'OK', note: '' }), null);
+});
+
 test('toCell bảo vệ User ID dài, ngày và chuỗi bắt đầu bằng dấu bằng', () => {
   assert.equal(toCell(12), 12);
   assert.equal(toCell('12'), 12);
@@ -86,4 +102,5 @@ test('toCell bảo vệ User ID dài, ngày và chuỗi bắt đầu bằng dấ
   assert.equal(toCell('https://www.facebook.com/profile.php?id=1'), 'https://www.facebook.com/profile.php?id=1');
   assert.equal(toCell(null), '');
   assert.equal(toCell(undefined), '');
+  assert.equal(toCell(''), '', 'ô trống ghi trống, không ghi dấu nháy');
 });

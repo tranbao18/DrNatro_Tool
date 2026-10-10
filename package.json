@@ -13,6 +13,7 @@
     "once": "node src/index.js run",
     "watch": "node src/index.js watch",
     "check-sheet": "node src/index.js check-sheet",
+    "ui": "node src/index.js ui",
     "test": "node --test"
   },
   "dependencies": {

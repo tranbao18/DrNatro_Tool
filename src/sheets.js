@@ -49,7 +49,7 @@ export const REJECTED_HEADER = [
 export const HISTORY_HEADER = ['Ngày', 'User ID', 'Tên Facebook', 'Lượt thích', 'Lượt trả lời', 'Tổng tương tác', 'Cập nhật lúc'];
 
 // Cột cố định trong tab Danh sách (chỉ số từ 0).
-export const COL = { UID: 3, MANUAL: 9, MANUAL_NOTE: 10 };
+export const COL = { UID: 3, STATUS: 4, REASON: 5, MANUAL: 9, MANUAL_NOTE: 10 };
 
 export function createSheetsClient(serviceAccountPath) {
   if (!fs.existsSync(serviceAccountPath)) {
@@ -103,6 +103,14 @@ export class SheetsClient {
     return this.request(`${API}/${sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`, {
       method: 'PUT',
       data: { range, majorDimension: 'ROWS', values },
+    });
+  }
+
+  /** Ghi nhiều vùng rời nhau trong một lần gọi. data = [{ range, values }]. */
+  async batchWriteRanges(sheetId, data) {
+    return this.request(`${API}/${sheetId}/values:batchUpdate`, {
+      method: 'POST',
+      data: { valueInputOption: 'USER_ENTERED', data },
     });
   }
 
@@ -198,6 +206,7 @@ export function toCell(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : '';
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
   const s = String(value);
+  if (s === '') return '';
   if (/^\d{1,9}$/.test(s)) return Number(s);
   if (/^https?:\/\/\S+$/i.test(s)) return s;
   return `'${s}`;
@@ -229,6 +238,42 @@ export function mergeManual(saved, rows) {
     else delete merged[uid];
   }
   return merged;
+}
+
+/** Chỉ số cột (từ 0) sang chữ cột của sheet: 0 -> A, 25 -> Z, 26 -> AA. */
+export function columnLetter(index) {
+  let n = index + 1;
+  let out = '';
+  while (n > 0) {
+    const r = (n - 1) % 26;
+    out = String.fromCharCode(65 + r) + out;
+    n = Math.floor((n - 1) / 26);
+  }
+  return out;
+}
+
+/**
+ * Dựng các ô cần ghi khi duyệt tay trên giao diện: tìm dòng theo User ID (không theo số dòng,
+ * vì bảng được sắp xếp lại sau mỗi lần quét), ghi Duyệt tay, Ghi chú duyệt và nếu có thì cả Trạng thái, Lý do.
+ * @returns {{ rowNumber: number, data: Array<{ range: string, values: any[][] }> } | null} null nếu không thấy dòng
+ */
+export function buildManualUpdate(rows, uid, { decision, note, status, reasons }) {
+  if (!rows.length) return null;
+  const header = rows[0] || [];
+  const idx = {
+    uid: indexOfHeader(header, /user id/i, COL.UID),
+    status: indexOfHeader(header, /^trạng thái/i, COL.STATUS),
+    reason: indexOfHeader(header, /lý do/i, COL.REASON),
+    manual: indexOfHeader(header, /duyệt tay/i, COL.MANUAL),
+    note: indexOfHeader(header, /ghi chú duyệt/i, COL.MANUAL_NOTE),
+  };
+  const i = rows.findIndex((row, n) => n > 0 && String(row[idx.uid] || '').trim() === String(uid));
+  if (i < 0) return null;
+  const rowNumber = i + 1;
+  const cell = (col, value) => ({ range: `'${TABS.MAIN}'!${columnLetter(col)}${rowNumber}`, values: [[toCell(value)]] });
+  const data = [cell(idx.manual, decision), cell(idx.note, note)];
+  if (status) data.push(cell(idx.status, status), cell(idx.reason, (reasons || []).join('; ')));
+  return { rowNumber, data };
 }
 
 function indexOfHeader(header, re, fallback) {

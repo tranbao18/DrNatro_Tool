@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const CONFIG_PATH = path.join(ROOT_DIR, 'config.json');
 
 const DEFAULTS = {
   timezone: 'Asia/Ho_Chi_Minh',
@@ -22,10 +23,11 @@ const DEFAULTS = {
   },
   memberCheck: 'auto',
   debug: { dumpGraphql: false },
+  ui: { port: 4321, openBrowser: true },
 };
 
 export function loadConfig({ requirePost = true } = {}) {
-  const file = path.join(ROOT_DIR, 'config.json');
+  const file = CONFIG_PATH;
   if (!fs.existsSync(file)) {
     throw new Error(
       'Chưa có file config.json. Hãy copy config.example.json thành config.json rồi điền thông tin.',
@@ -45,6 +47,7 @@ export function loadConfig({ requirePost = true } = {}) {
     browser: { ...DEFAULTS.browser, ...(raw.browser || {}) },
     limits: { ...DEFAULTS.limits, ...(raw.limits || {}) },
     debug: { ...DEFAULTS.debug, ...(raw.debug || {}) },
+    ui: { ...DEFAULTS.ui, ...(raw.ui || {}) },
   };
 
   const problems = [];

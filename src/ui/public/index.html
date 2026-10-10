@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="vi" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Quản lý dữ liệu Minigame</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <script>
+    // Áp chế độ sáng/tối đã chọn trước khi trang vẽ, tránh nháy màu khi mở.
+    try {
+      if (localStorage.getItem('drnatro-theme') === 'light') document.documentElement.dataset.theme = 'light';
+    } catch {}
+  </script>
+  <!-- Inter và JetBrains Mono có bộ chữ tiếng Việt; không có mạng thì dùng Segoe UI / Consolas. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-logo"><img src="/logo.png" alt="Logo Dr.Natro" width="34" height="34"></span>
+      <div>
+        <h1>Quản lý dữ liệu Minigame</h1>
+        <p class="muted">Dr.Natro · Thu thập bình luận, lọc điều kiện và duyệt người tham gia</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="pill" id="run-pill">Đang tải…</span>
+      <span class="countdown" id="countdown"></span>
+      <button type="button" class="theme-btn" id="theme-btn"></button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="kpis" id="kpis" aria-label="Tổng quan"></section>
+
+    <section class="card chart-card" aria-labelledby="chart-title">
+      <div class="card-head">
+        <div>
+          <h2 id="chart-title">Người tham gia theo ngày</h2>
+          <p class="muted" id="chart-sub">Mỗi người tính một lần, theo ngày của bình luận được chọn</p>
+        </div>
+        <div class="chart-total" id="chart-total"></div>
+      </div>
+      <div class="chart" id="chart"></div>
+      <div class="chart-foot" id="chart-foot"></div>
+      <details class="chart-table">
+        <summary>Xem số liệu dạng bảng</summary>
+        <div id="chart-table"></div>
+      </details>
+    </section>
+
+    <aside class="side">
+      <section class="card controls" aria-labelledby="controls-title">
+        <h2 id="controls-title">Điều khiển</h2>
+        <form id="post-form" class="post-form">
+          <label for="post-url">Link bài viết minigame</label>
+          <div class="row">
+            <input id="post-url" type="url" placeholder="https://www.facebook.com/groups/…/posts/…" autocomplete="off" spellcheck="false">
+            <button type="submit" class="btn">Lưu</button>
+          </div>
+        </form>
+        <button id="run-btn" class="btn btn-primary btn-block" type="button">Chạy quét ngay</button>
+        <div class="run-meta" id="run-meta"></div>
+        <div class="links">
+          <a id="sheet-link" target="_blank" rel="noopener">Google Sheet ↗</a>
+          <a id="post-link" target="_blank" rel="noopener">Bài viết ↗</a>
+          <button id="refresh-btn" class="btn btn-ghost btn-small" type="button">Làm mới</button>
+        </div>
+      </section>
+
+      <section class="card alerts-card" aria-labelledby="alerts-title">
+        <h2 id="alerts-title">Cảnh báo <span class="count" id="alert-count"></span></h2>
+        <div id="alerts" class="alerts" aria-live="polite"></div>
+      </section>
+    </aside>
+
+    <section class="card table-card">
+      <nav class="tabs" role="tablist">
+        <button role="tab" class="tab" data-tab="records" aria-selected="true">Người tham gia <span class="count" id="tab-count-records"></span></button>
+        <button role="tab" class="tab" data-tab="rejected" aria-selected="false">Không đủ tag <span class="count" id="tab-count-rejected"></span></button>
+        <button role="tab" class="tab" data-tab="logs" aria-selected="false">Nhật ký</button>
+      </nav>
+
+      <div class="tab-panel" id="panel-records">
+        <div class="toolbar">
+          <input id="search" type="search" placeholder="Tìm theo tên hoặc User ID" autocomplete="off">
+          <div class="chips" id="filters" role="group" aria-label="Lọc theo trạng thái"></div>
+          <select id="sort" aria-label="Sắp xếp">
+            <option value="default">Xếp như Google Sheet</option>
+            <option value="engagement">Tương tác cao nhất</option>
+            <option value="name">Tên A–Z</option>
+          </select>
+        </div>
+        <div class="lock-note" id="lock-note" hidden>Đang quét, tạm khoá duyệt tay để không bị ghi đè. Quét xong sẽ mở lại.</div>
+        <div class="table-wrap">
+          <table class="grid">
+            <thead>
+              <tr>
+                <th class="num">#</th>
+                <th>Người tham gia</th>
+                <th>Trạng thái</th>
+                <th class="num">Tag</th>
+                <th>Thành viên</th>
+                <th>Share</th>
+                <th class="num">Tương tác</th>
+                <th>Bình luận</th>
+                <th class="manual-col">Duyệt tay</th>
+              </tr>
+            </thead>
+            <tbody id="records-body"></tbody>
+          </table>
+        </div>
+        <div class="more" id="records-more"></div>
+      </div>
+
+      <div class="tab-panel" id="panel-rejected" hidden>
+        <div class="toolbar">
+          <input id="search-rejected" type="search" placeholder="Tìm theo tên hoặc User ID" autocomplete="off">
+        </div>
+        <div class="table-wrap">
+          <table class="grid">
+            <thead>
+              <tr>
+                <th class="num">#</th>
+                <th>Người tham gia</th>
+                <th>Lý do</th>
+                <th class="num">Tag nhiều nhất</th>
+                <th>Bình luận</th>
+              </tr>
+            </thead>
+            <tbody id="rejected-body"></tbody>
+          </table>
+        </div>
+        <div class="more" id="rejected-more"></div>
+      </div>
+
+      <div class="tab-panel" id="panel-logs" hidden>
+        <div class="toolbar">
+          <span class="muted" id="log-file"></span>
+        </div>
+        <pre class="log" id="log"></pre>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

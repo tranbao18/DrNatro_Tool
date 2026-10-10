@@ -30,5 +30,9 @@
   "memberCheck": "auto",
   "debug": {
     "dumpGraphql": false
+  },
+  "ui": {
+    "port": 4321,
+    "openBrowser": true
   }
 }

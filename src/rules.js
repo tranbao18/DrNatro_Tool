@@ -77,6 +77,43 @@ export function groupByUser(comments, rules) {
 }
 
 /**
+ * Trạng thái của một user đủ tag, từ duyệt tay (đã chuẩn hoá bằng normalizeManual) và kết quả tự động.
+ * Dùng chung cho lần quét và cho giao diện khi team bấm duyệt tay.
+ * @param {object} input
+ * @param {string} input.manualDecision 'OK' | 'LOẠI' | ''
+ * @param {string} input.member member | not_member | unknown
+ * @param {string} input.shareAuto shared | shared_private | not_found
+ * @param {string} [input.sharePrivacy] chế độ riêng tư của bài share
+ * @param {boolean} input.sharesAvailable hộp thoại share có đọc được không
+ * @returns {{ status: string, reasons: string[] }}
+ */
+export function decideStatus({ manualDecision, member, shareAuto, sharePrivacy, sharesAvailable }) {
+  const reasons = [];
+  let status;
+  if (manualDecision === 'LOẠI') {
+    status = STATUS.REJECTED;
+    reasons.push('Duyệt tay: loại');
+  } else if (manualDecision === 'OK') {
+    status = STATUS.QUALIFIED;
+    reasons.push('Duyệt tay: OK');
+  } else if (member === 'not_member') {
+    status = STATUS.REJECTED;
+    reasons.push('Không phải thành viên group');
+  } else if (member === 'member' && shareAuto === 'shared') {
+    status = STATUS.QUALIFIED;
+  } else {
+    status = STATUS.PENDING;
+    if (member !== 'member') reasons.push('Thành viên: chưa xác nhận tự động');
+    if (shareAuto === 'not_found') {
+      reasons.push(sharesAvailable ? 'Share: không thấy trong danh sách chia sẻ công khai' : 'Share: chưa đọc được danh sách chia sẻ');
+    } else if (shareAuto === 'shared_private') {
+      reasons.push(`Share: có chia sẻ nhưng chế độ "${sharePrivacy}"`);
+    }
+  }
+  return { status, reasons };
+}
+
+/**
  * Tạo bản ghi cho từng user để ghi vào sheet.
  * @param {object} input
  * @param {Map} input.users kết quả groupByUser
@@ -114,28 +151,7 @@ export function buildRecords({ users, sharers, memberStatus, manual, sharesAvail
     const member = memberStatus?.[uid] || 'unknown';
     const share = sharers?.get(uid);
     const shareAuto = share ? (share.isPublic === false ? 'shared_private' : 'shared') : 'not_found';
-    const reasons = [];
-    let status;
-    if (manualDecision === 'LOẠI') {
-      status = STATUS.REJECTED;
-      reasons.push('Duyệt tay: loại');
-    } else if (manualDecision === 'OK') {
-      status = STATUS.QUALIFIED;
-      reasons.push('Duyệt tay: OK');
-    } else if (member === 'not_member') {
-      status = STATUS.REJECTED;
-      reasons.push('Không phải thành viên group');
-    } else if (member === 'member' && shareAuto === 'shared') {
-      status = STATUS.QUALIFIED;
-    } else {
-      status = STATUS.PENDING;
-      if (member !== 'member') reasons.push('Thành viên: chưa xác nhận tự động');
-      if (shareAuto === 'not_found') {
-        reasons.push(sharesAvailable ? 'Share: không thấy trong danh sách chia sẻ công khai' : 'Share: chưa đọc được danh sách chia sẻ');
-      } else if (shareAuto === 'shared_private') {
-        reasons.push(`Share: có chia sẻ nhưng chế độ "${share.privacy}"`);
-      }
-    }
+    const { status, reasons } = decideStatus({ manualDecision, member, shareAuto, sharePrivacy: share?.privacy, sharesAvailable });
 
     qualifiedList.push({
       ...base,
@@ -145,6 +161,8 @@ export function buildRecords({ users, sharers, memberStatus, manual, sharesAvail
       memberAuto: member,
       memberLabel: MEMBER_LABEL[member] || MEMBER_LABEL.unknown,
       shareAuto,
+      sharePrivacy: share?.privacy || '',
+      sharesAvailable,
       shareLabel:
         shareAuto === 'shared'
           ? 'Đã share công khai'

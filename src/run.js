@@ -1,6 +1,7 @@
 // Một lần chạy đầy đủ: quét bài viết -> đọc share -> kiểm tra thành viên -> ghi sheet.
 import { ROOT_DIR } from './config.js';
-import { loadState, saveState } from './state.js';
+import { loadState, saveState, saveResults } from './state.js';
+import { acquireRunLock, releaseRunLock } from './lock.js';
 import { launchBrowser, assertLoggedIn } from './browser.js';
 import { collectPostComments } from './fb/post.js';
 import { collectShares } from './fb/shares.js';
@@ -17,7 +18,7 @@ import {
   buildSystemRows,
   mergeManual,
 } from './sheets.js';
-import { formatDateTime, dateKey } from './util.js';
+import { formatDateTime, dateKey, truncate } from './util.js';
 
 // Số lần liên tiếp đọc được ít bình luận bất thường trước khi chấp nhận là bình luận bị xoá thật.
 export const MAX_LOW_COMMENT_RUNS = 3;
@@ -92,6 +93,67 @@ export async function runOnce(config, logger) {
     await handleFrozen(config, state, logger);
     return { frozen: true };
   }
+
+  acquireRunLock(ROOT_DIR);
+  try {
+    // Đọc lại state sau khi giữ khoá, phòng lần quét trước vừa ghi xong.
+    return await scan(config, logger, loadState(ROOT_DIR), startedAt);
+  } finally {
+    releaseRunLock(ROOT_DIR);
+  }
+}
+
+function commentSummary(comment) {
+  if (!comment) return null;
+  return {
+    text: truncate(comment.text, 1000),
+    url: comment.url || '',
+    createdAt: comment.createdAt ? new Date(comment.createdAt).toISOString() : null,
+  };
+}
+
+/** Bản gọn của kết quả để lưu data/results.json cho giao diện quản lý. */
+function resultsSnapshot({ startedAt, finalRun, config, stats, sharesAvailable, records, rejected, state }) {
+  return {
+    startedAt: startedAt.toISOString(),
+    finishedAt: new Date().toISOString(),
+    finalRun,
+    postUrl: config.postUrl,
+    stats,
+    sharesAvailable,
+    records: records.map((r) => ({
+      uid: r.uid,
+      name: r.name,
+      profileUrl: r.profileUrl,
+      status: r.status,
+      reasons: r.reasons,
+      tagCount: r.tagCount,
+      memberAuto: r.memberAuto,
+      memberLabel: r.memberLabel,
+      memberEvidence: state.members[r.uid]?.evidence || '',
+      shareAuto: r.shareAuto,
+      sharePrivacy: r.sharePrivacy,
+      shareLabel: r.shareLabel,
+      manualDecision: r.manualDecision,
+      manualNote: r.manualNote,
+      likes: r.likes,
+      replies: r.replies,
+      engagement: r.engagement,
+      candidateCount: r.candidateCount,
+      comment: commentSummary(r.comment),
+    })),
+    rejected: rejected.map((r) => ({
+      uid: r.uid,
+      name: r.name,
+      profileUrl: r.profileUrl,
+      reason: r.reason,
+      tagCount: r.tagCount,
+      comment: commentSummary(r.comment),
+    })),
+  };
+}
+
+async function scan(config, logger, state, startedAt) {
   const finalRun = isFinalRun(config, startedAt);
   if (finalRun) logger.info('Đây là lần chạy chốt cuối, sau lần này tool không cập nhật nữa.');
 
@@ -123,7 +185,8 @@ export async function runOnce(config, logger) {
     // Lần quét tải thiếu (Facebook giới hạn, chạm maxExpandClicks...) sẽ làm mất user khỏi sheet: không ghi đè.
     const drop = checkCommentDrop({
       count: comments.size,
-      lastCount: state.lastCommentCount,
+      // Đổi sang bài viết khác thì không so với số bình luận của bài cũ.
+      lastCount: state.lastPostUrl === config.postUrl ? state.lastCommentCount : null,
       minRatio: config.limits.minCommentRatio,
       lowRuns: state.lowCommentRuns,
     });
@@ -220,8 +283,15 @@ export async function runOnce(config, logger) {
       }).slice(1),
     );
 
+    saveResults(
+      ROOT_DIR,
+      resultsSnapshot({ startedAt, finalRun, config, stats, sharesAvailable: shareResult.found, records, rejected, state }),
+    );
+
     state.lastRun = startedAt.toISOString();
+    state.lastError = null;
     state.lastCommentCount = comments.size;
+    state.lastPostUrl = config.postUrl;
     state.lowCommentRuns = 0;
     if (finalRun) state.finalRunFor = config.freezeAt;
     saveState(ROOT_DIR, state);
@@ -236,6 +306,8 @@ export async function runOnce(config, logger) {
   } catch (err) {
     lastError = err.message;
     logger.error(`Lần chạy thất bại: ${err.message}`, err);
+    state.lastError = { at: new Date().toISOString(), message: err.message };
+    saveState(ROOT_DIR, state);
     try {
       await sheets.writeRange(config.sheetId, `'${TABS.SYSTEM}'!A16:B16`, [['Lỗi gần nhất', `${formatDateTime(new Date(), config.timezone)}: ${lastError}`]]);
     } catch (writeErr) {

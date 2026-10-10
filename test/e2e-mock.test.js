@@ -124,6 +124,7 @@ test('duyệt bài viết giả: gom bình luận, danh sách share và kiểm t
   } finally {
     await context.close();
     server.close();
-    fs.rmSync(rootDir, { recursive: true, force: true });
+    // Windows: Chromium vừa đóng có thể còn giữ file trong profile một lúc, nên cho phép thử xoá lại.
+    fs.rmSync(rootDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
   }
 });

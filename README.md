@@ -72,6 +72,8 @@ Copy `config.example.json` thành `config.json` rồi sửa:
 | `limits.minCommentRatio` | Nếu số bình luận đọc được thấp hơn tỉ lệ này so với lần chạy trước (mặc định `0.8` = 80%), tool coi là Facebook tải thiếu và không ghi đè sheet. Ghi `0` để tắt |
 | `memberCheck` | `auto` để tự kiểm tra thành viên, `off` để chỉ duyệt tay |
 | `debug.dumpGraphql` | `true` để lưu dữ liệu thô vào `data/debug/` khi cần dev xem lỗi |
+| `ui.port` | Cổng của giao diện quản lý, mặc định 4321 |
+| `ui.openBrowser` | Tự mở trình duyệt khi chạy `npm run ui`, mặc định `true` |
 
 ### 5. Đăng nhập Facebook (một lần)
 
@@ -107,9 +109,29 @@ Hoặc đặt lịch Windows Task Scheduler chạy mỗi giờ kể cả khi đ�
 powershell -ExecutionPolicy Bypass -File .\scripts\setup-schedule.ps1
 ```
 
-Chỉ dùng **một** trong hai cách (watch hoặc lịch), vì cả hai dùng chung phiên đăng nhập trong `data/profile`. Khi đổi `freezeAt` hoặc `finalRunLeadMinutes`, chạy lại lệnh trên để cập nhật lịch.
+Nên chọn **một** trong hai cách (watch hoặc lịch). Nếu lỡ chạy cả hai, tool có khoá `data/run.lock` nên lần quét thứ hai sẽ tự bỏ qua thay vì tranh nhau phiên đăng nhập Facebook. Khi đổi `freezeAt` hoặc `finalRunLeadMinutes`, chạy lại lệnh trên để cập nhật lịch.
 
 Gỡ lịch: `powershell -ExecutionPolicy Bypass -File .\scripts\remove-schedule.ps1`. Log của lịch nằm ở `logs\scheduler.log`, log chi tiết theo ngày ở `logs\`.
+
+## Giao diện quản lý
+
+Mở trang quản lý trên trình duyệt (bấm đúp file `scripts\ui.cmd`, hoặc chạy lệnh dưới). Giữ cửa sổ đen mở trong lúc dùng, nhấn Ctrl+C để tắt:
+
+```powershell
+npm run ui
+```
+
+Trang mở tại http://127.0.0.1:4321 và chỉ truy cập được từ chính máy này. Trên trang có:
+
+- **Tổng quan**: 3 ô số liệu Đủ điều kiện, Chờ duyệt, Loại (bấm vào để lọc bảng) và đếm ngược tới mốc chốt.
+- **Biểu đồ người tham gia theo ngày** (theo giờ khi mới chạy 1–2 ngày): rê chuột hoặc dùng phím mũi tên để xem từng mốc, có bảng số liệu bên dưới. Kèm số bình luận quét được, người share, người đủ/không đủ tag.
+- **Cảnh báo**: lỗi lần quét, lỗi đọc sheet, chưa có link bài viết, số người đang chờ duyệt tay (bấm "Xem danh sách" để lọc).
+- **Link bài viết**: dán link, bấm Lưu link (ghi vào `config.json`).
+- **Chạy quét ngay**: chạy một lần quét như `npm start`, xem tiến trình trực tiếp. Lần quét từ lịch Windows cũng hiện "Đang quét…".
+- **Người tham gia**: tìm theo tên hoặc User ID, lọc theo trạng thái, bấm **OK / LOẠI / Bỏ** và ghi chú để duyệt tay. Tool ghi ngay vào đúng dòng của User ID đó trên Google Sheet (cột Duyệt tay, Ghi chú duyệt, Trạng thái, Lý do), nên không lo nhập nhầm dòng khi bảng sắp xếp lại. Trong lúc đang quét, duyệt tay tạm khoá để không bị ghi đè.
+- **Không đủ tag** và **Nhật ký** (log của ngày gần nhất).
+
+Trang đọc kết quả lần quét gần nhất từ `data/results.json` và cột duyệt tay hiện có trên Google Sheet, nên team vẫn có thể duyệt thẳng trên sheet như cũ. Đổi cổng bằng `ui.port`, tắt tự mở trình duyệt bằng `ui.openBrowser: false` trong `config.json`.
 
 ## Google Sheet đầu ra
 
@@ -124,7 +146,7 @@ Cột **Duyệt tay** chấp nhận `OK` (hoặc Đạt, Duyệt) và `LOẠI` (
 
 Quyết định duyệt tay được lưu theo User ID trong `data/state.json`. Nếu một lần quét không tải được bình luận của ai đó, dòng của họ tạm biến khỏi tab Danh sách nhưng quyết định vẫn được giữ và tự điền lại khi họ xuất hiện trở lại. Muốn bỏ quyết định, xoá trắng ô Duyệt tay và Ghi chú duyệt của user đó.
 
-Bảng được sắp xếp lại sau mỗi lần chạy. Khi nhập Duyệt tay, kiểm tra lại tên trên dòng trước khi gõ và tránh nhập đúng lúc tool đang ghi (giờ chạy xem ở tab Hệ thống).
+Bảng được sắp xếp lại sau mỗi lần chạy. Khi nhập Duyệt tay thẳng trên sheet, kiểm tra lại tên trên dòng trước khi gõ và tránh nhập đúng lúc tool đang ghi (giờ chạy xem ở tab Hệ thống). Duyệt trên **giao diện quản lý** (`npm run ui`) thì không gặp vấn đề này vì tool ghi theo User ID.
 
 ## Chốt kết quả
 
@@ -143,7 +165,7 @@ Muốn đổi mốc, sửa `freezeAt` trong `config.json` (rồi chạy lại `s
 3. Mở hộp thoại "Người đã chia sẻ bài viết" để lấy danh sách người share và chế độ riêng tư.
 4. Với mỗi user đủ tag, mở trang hồ sơ thành viên trong group `groups/<id>/user/<uid>` để xác nhận là thành viên. Nếu trang vừa có dấu hiệu là thành viên vừa có chữ kiểu "không khả dụng"/"rời nhóm" (thường nằm trong bài viết của chính họ), tool không tự loại mà để CHỜ DUYỆT. Kết quả cache 24 giờ trong `data/state.json`.
 5. Nếu số bình luận đọc được tụt mạnh so với lần trước, tool dừng và giữ nguyên sheet (xem mục Lưu ý).
-6. Đọc cột duyệt tay hiện có, gộp với bản lưu trong `data/state.json`, tính trạng thái, ghi lại 4 tab.
+6. Đọc cột duyệt tay hiện có, gộp với bản lưu trong `data/state.json`, tính trạng thái, ghi lại 4 tab và lưu bản kết quả vào `data/results.json` cho giao diện quản lý.
 
 ## Lưu ý và xử lý sự cố
 
