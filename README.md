@@ -74,6 +74,9 @@ Copy `config.example.json` thành `config.json` rồi sửa:
 | `debug.dumpGraphql` | `true` để lưu dữ liệu thô vào `data/debug/` khi cần dev xem lỗi |
 | `ui.port` | Cổng của giao diện quản lý, mặc định 4321 |
 | `ui.openBrowser` | Tự mở trình duyệt khi chạy `npm run ui`, mặc định `true` |
+| `ui.publicUrl` | Địa chỉ để team mở giao diện từ xa qua Cloudflare Tunnel, ví dụ `https://minigame.drnatro.net`. Để trống nếu chỉ dùng trên máy này |
+| `ui.googleClientId` | Client ID của nút "Đăng nhập bằng Google" (dạng `...apps.googleusercontent.com`). Bắt buộc khi có `ui.publicUrl` |
+| `ui.allowedEmails` | Các Gmail được vào từ xa ngay không cần duyệt, ví dụ `["ten@gmail.com"]`. Gmail khác phải được cho phép trong tab Người truy cập |
 
 ### 5. Đăng nhập Facebook (một lần)
 
@@ -131,7 +134,17 @@ Trang mở tại http://127.0.0.1:4321 và chỉ truy cập được từ chính
 - **Người tham gia**: tìm theo tên hoặc User ID, lọc theo trạng thái, bấm **OK / LOẠI / Bỏ** và ghi chú để duyệt tay. Tool ghi ngay vào đúng dòng của User ID đó trên Google Sheet (cột Duyệt tay, Ghi chú duyệt, Trạng thái, Lý do), nên không lo nhập nhầm dòng khi bảng sắp xếp lại. Trong lúc đang quét, duyệt tay tạm khoá để không bị ghi đè.
 - **Không đủ tag** và **Nhật ký** (log của ngày gần nhất).
 
-Trang đọc kết quả lần quét gần nhất từ `data/results.json` và cột duyệt tay hiện có trên Google Sheet, nên team vẫn có thể duyệt thẳng trên sheet như cũ. Đổi cổng bằng `ui.port`, tắt tự mở trình duyệt bằng `ui.openBrowser: false` trong `config.json`.
+Trang đọc kết quả lần quét gần nhất từ `data/results.json` và cột duyệt tay hiện có trên Google Sheet, nên team vẫn có thể duyệt thẳng trên sheet như cũ.
+
+**Tự bật cùng Windows** (chạy ẩn, không có cửa sổ, tự khởi động lại nếu lỗi):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-ui-autostart.ps1
+```
+
+Sau khi sửa `config.json`, khởi động lại bằng `powershell -ExecutionPolicy Bypass -File .\scripts\restart-ui.ps1` (script từ chối nếu đang có lần quét chạy). Nhật ký khởi động ở `logs\ui-autostart.log`. Gỡ: `powershell -ExecutionPolicy Bypass -File .\scripts\remove-ui-autostart.ps1`. Giao diện chỉ chạy khi đã đăng nhập Windows.
+
+Muốn team mở giao diện từ máy khác (địa chỉ `https://minigame.drnatro.net`, đăng nhập bằng Google), làm theo [docs/cloudflare-tunnel.md](docs/cloudflare-tunnel.md). Tool vẫn quét Facebook trên máy này. Gmail của người vào từ xa được lưu lại; Gmail mới phải được cho phép trong tab **Người truy cập** (chỉ hiện trên máy chạy tool), và mọi thao tác từ xa được ghi nhật ký kèm Gmail. Đổi cổng bằng `ui.port`, tắt tự mở trình duyệt bằng `ui.openBrowser: false` trong `config.json`.
 
 ## Google Sheet đầu ra
 

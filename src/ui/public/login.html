@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="vi" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Đăng nhập · Quản lý dữ liệu Minigame</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <script>
+    try {
+      if (localStorage.getItem('drnatro-theme') === 'light') document.documentElement.dataset.theme = 'light';
+    } catch {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="login-page">
+  <main class="card login-card">
+    <span class="brand-logo brand-logo-lg"><img src="/logo.png" alt="Logo Dr.Natro" width="56" height="56"></span>
+    <h1>Quản lý dữ liệu Minigame</h1>
+    <p class="muted">Đăng nhập bằng Google để tiếp tục. Gmail của bạn sẽ được ghi lại; lần đầu vào cần người quản lý tool cho phép.</p>
+    <div id="gsi-btn" class="gsi-btn"></div>
+    <div id="msg" class="alert" role="status" hidden></div>
+  </main>
+  <script src="https://accounts.google.com/gsi/client" async></script>
+  <script type="module" src="/login.js"></script>
+</body>
+</html>

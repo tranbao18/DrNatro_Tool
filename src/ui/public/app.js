@@ -80,9 +80,16 @@ async function api(path, body) {
   const options = body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) };
   const res = await fetch(path, options);
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    // Phiên đăng nhập Google hết hạn hoặc Gmail vừa bị chặn: về trang đăng nhập.
+    location.reload();
+    throw new Error(data.error || 'Cần đăng nhập lại.');
+  }
   if (!res.ok) throw new Error(data.error || `Lỗi ${res.status}`);
   return data;
 }
+
+const VISITOR_STATUS = { allowed: ['ok', 'Được phép'], pending: ['warn', 'Chờ cấp quyền'], blocked: ['bad', 'Đã chặn'] };
 
 let toastTimer;
 function toast(message, bad = false) {
@@ -140,6 +147,13 @@ function renderHeader() {
     pill.textContent = 'Sẵn sàng';
   }
   pill.title = run.lock ? `PID ${run.lock.pid}, bắt đầu ${fmt(run.lock.startedAt)}` : '';
+  const viewer = $('viewer');
+  viewer.hidden = !ui.data.viewer?.remote;
+  viewer.textContent = ui.data.viewer?.email ? `Đăng nhập: ${ui.data.viewer.email}` : '';
+  viewer.title = viewer.textContent;
+  $('logout-btn').hidden = !ui.data.viewer?.remote;
+  $('tab-visitors').hidden = !ui.data.viewer?.admin;
+  $('tab-count-visitors').textContent = ui.data.pendingVisitors ? `${ui.data.pendingVisitors} chờ` : '';
   renderCountdown();
 }
 
@@ -468,6 +482,14 @@ function renderAlerts() {
   if (config.frozen) {
     items.push({ kind: 'info', title: 'Đã chốt kết quả', body: 'Tool không quét nữa, số liệu giữ nguyên. Vẫn duyệt tay được để hoàn tất danh sách.' });
   }
+  if (ui.data.viewer?.admin && ui.data.pendingVisitors > 0) {
+    items.push({
+      kind: 'warn',
+      title: `${num(ui.data.pendingVisitors)} Gmail đang chờ cấp quyền`,
+      body: 'Có người đăng nhập từ xa nhưng chưa được cho phép vào giao diện.',
+      action: ['tab:visitors', 'Xem và cấp quyền'],
+    });
+  }
   $('alert-count').textContent = items.length ? `(${items.length})` : '';
   $('alerts').innerHTML = items.length
     ? items
@@ -684,8 +706,54 @@ async function saveManual(uid, decision, note) {
 function setTab(tab) {
   ui.tab = tab;
   for (const el of document.querySelectorAll('.tab')) el.setAttribute('aria-selected', String(el.dataset.tab === tab));
-  for (const name of ['records', 'rejected', 'logs']) $(`panel-${name}`).hidden = name !== tab;
+  for (const name of ['records', 'rejected', 'logs', 'visitors']) $(`panel-${name}`).hidden = name !== tab;
   if (tab === 'logs') renderLogs();
+  if (tab === 'visitors') renderVisitors();
+}
+
+function visitorRows(visitors) {
+  if (!visitors.length) return '<tr><td class="empty" colspan="7">Chưa có ai đăng nhập từ xa.</td></tr>';
+  return visitors
+    .map((v) => {
+      const [cls, label] = VISITOR_STATUS[v.status] || ['', v.status];
+      const email = esc(v.email);
+      const actions = [
+        v.status !== 'allowed' ? `<button type="button" class="btn btn-small" data-visitor="allowed" data-email="${email}">Cho phép</button>` : '',
+        v.status !== 'blocked' ? `<button type="button" class="btn btn-ghost btn-small" data-visitor="blocked" data-email="${email}">Chặn</button>` : '',
+      ].join(' ');
+      return `<tr>
+        <td><strong>${email}</strong>${v.inConfig ? '<span class="tag" title="Có trong ui.allowedEmails của config.json">config</span>' : ''}</td>
+        <td>${esc(v.name) || '<span class="muted">–</span>'}</td>
+        <td><span class="badge ${cls}">${esc(label)}</span></td>
+        <td>${esc(fmt(v.firstSeen)) || '<span class="muted">chưa vào</span>'}</td>
+        <td>${esc(fmt(v.lastSeen)) || '<span class="muted">–</span>'}</td>
+        <td class="num">${num(v.count)}</td>
+        <td>${actions}</td>
+      </tr>`;
+    })
+    .join('');
+}
+
+async function renderVisitors() {
+  try {
+    const { visitors } = await api('/api/visitors');
+    $('visitors-body').innerHTML = visitorRows(visitors);
+  } catch (err) {
+    $('visitors-body').innerHTML = `<tr><td class="empty" colspan="7">${esc(err.message)}</td></tr>`;
+  }
+}
+
+async function setVisitor(email, status) {
+  try {
+    const { visitors } = await api('/api/visitors', { email, status });
+    $('visitors-body').innerHTML = visitorRows(visitors);
+    ui.data.pendingVisitors = visitors.filter((v) => v.status === 'pending' && v.count > 0).length;
+    renderHeader();
+    renderAlerts();
+    toast(status === 'allowed' ? `Đã cho phép ${email}.` : `Đã chặn ${email}.`);
+  } catch (err) {
+    toast(err.message, true);
+  }
 }
 
 function setFilter(filter, { scroll = false } = {}) {
@@ -714,7 +782,7 @@ function bindEvents() {
   });
 
   $('run-btn').addEventListener('click', async () => {
-    if (!confirm('Chạy quét ngay?\n\nTool sẽ mở trình duyệt vào Facebook, mất khoảng 10–30 phút. Trong lúc quét, duyệt tay tạm khoá.')) return;
+    if (!confirm('Chạy quét ngay?\n\nMáy chạy tool sẽ mở trình duyệt vào Facebook, mất khoảng 10–30 phút. Trong lúc quét, duyệt tay tạm khoá.')) return;
     try {
       await api('/api/run', {});
       ui.running = true;
@@ -728,6 +796,20 @@ function bindEvents() {
 
   $('refresh-btn').addEventListener('click', () => loadData({ refresh: true }));
   $('theme-btn').addEventListener('click', toggleTheme);
+  $('logout-btn').addEventListener('click', async () => {
+    await api('/api/logout', {}).catch(() => {});
+    location.reload();
+  });
+  $('visitors-body').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-visitor]');
+    if (btn) setVisitor(btn.dataset.email, btn.dataset.visitor);
+  });
+  $('visitor-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const email = $('visitor-email').value.trim();
+    if (!email) return;
+    setVisitor(email, 'allowed').then(() => ($('visitor-email').value = ''));
+  });
 
   $('kpis').addEventListener('click', (e) => {
     const card = e.target.closest('[data-filter]');
@@ -735,7 +817,13 @@ function bindEvents() {
   });
   $('alerts').addEventListener('click', (e) => {
     const act = e.target.closest('[data-filter]');
-    if (act) setFilter(act.dataset.filter, { scroll: true });
+    if (!act) return;
+    if (act.dataset.filter.startsWith('tab:')) {
+      setTab(act.dataset.filter.slice(4));
+      document.querySelector('.table-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      setFilter(act.dataset.filter, { scroll: true });
+    }
   });
   $('filters').addEventListener('click', (e) => {
     const chip = e.target.closest('[data-filter]');

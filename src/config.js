@@ -23,7 +23,7 @@ const DEFAULTS = {
   },
   memberCheck: 'auto',
   debug: { dumpGraphql: false },
-  ui: { port: 4321, openBrowser: true },
+  ui: { port: 4321, openBrowser: true, publicUrl: '', googleClientId: '', allowedEmails: [] },
 };
 
 export function loadConfig({ requirePost = true } = {}) {
@@ -71,6 +71,24 @@ export function loadConfig({ requirePost = true } = {}) {
   }
   if (!(config.limits.minCommentRatio >= 0 && config.limits.minCommentRatio <= 1)) {
     problems.push('limits.minCommentRatio phải nằm trong khoảng 0 đến 1 (0 để tắt kiểm tra tụt bình luận).');
+  }
+  if (config.ui.publicUrl) {
+    let url = null;
+    try {
+      url = new URL(config.ui.publicUrl);
+    } catch {
+      // Báo lỗi bên dưới.
+    }
+    if (!url || url.protocol !== 'https:' || url.pathname !== '/') {
+      problems.push('ui.publicUrl phải là địa chỉ https không kèm đường dẫn, ví dụ https://minigame.drnatro.net');
+    }
+    // Giao diện có quyền chạy quét và sửa Google Sheet: không cho mở ra Internet nếu thiếu đăng nhập Google.
+    if (!/\.apps\.googleusercontent\.com$/.test(config.ui.googleClientId || '')) {
+      problems.push('Khi đặt ui.publicUrl phải điền ui.googleClientId (Client ID dạng ...apps.googleusercontent.com) để bật đăng nhập bằng Google.');
+    }
+  }
+  if (!Array.isArray(config.ui.allowedEmails)) {
+    problems.push('ui.allowedEmails phải là danh sách Gmail, ví dụ ["ten@gmail.com"].');
   }
   if (!(config.rules.requiredTags >= 1)) {
     problems.push('rules.requiredTags phải là số >= 1.');

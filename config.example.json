@@ -33,6 +33,9 @@
   },
   "ui": {
     "port": 4321,
-    "openBrowser": true
+    "openBrowser": true,
+    "publicUrl": "",
+    "googleClientId": "",
+    "allowedEmails": []
   }
 }

@@ -43,7 +43,7 @@ function fakeSheets(rows) {
   };
 }
 
-async function setup({ sheetRows } = {}) {
+async function setup({ sheetRows, publicUrl = '', allowedEmails = [], verifyGoogle = null } = {}) {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'drnatro-ui-'));
   const configPath = path.join(rootDir, 'config.json');
   fs.writeFileSync(configPath, JSON.stringify({ postUrl: '', sheetId: 'SHEET', other: 'giữ nguyên' }, null, 2));
@@ -68,6 +68,7 @@ async function setup({ sheetRows } = {}) {
     finalRunDate: new Date(Date.parse(freezeAt) - 15 * 60_000),
     intervalMinutes: 60,
     memberCheck: 'auto',
+    ui: { publicUrl, allowedEmails },
   };
   const sheets = fakeSheets(sheetRows || [MAIN_HEADER, ...RECORDS.map((r, i) => sheetRow(r, i))]);
   const runs = [];
@@ -78,7 +79,9 @@ async function setup({ sheetRows } = {}) {
     runs.push(child);
     return child;
   };
-  const server = createUiServer({ config, rootDir, configPath, sheets, logger: silent, startRun });
+  const logs = [];
+  const logger = { ...silent, info: (m) => logs.push(m) };
+  const server = createUiServer({ config, rootDir, configPath, sheets, logger, startRun, verifyGoogle });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   const request = (method, url, { body, headers = {} } = {}) =>
@@ -90,7 +93,7 @@ async function setup({ sheetRows } = {}) {
           let text = '';
           res.setEncoding('utf8');
           res.on('data', (c) => (text += c));
-          res.on('end', () => resolve({ status: res.statusCode, text, json: () => JSON.parse(text) }));
+          res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, text, json: () => JSON.parse(text) }));
         },
       );
       req.on('error', reject);
@@ -101,7 +104,7 @@ async function setup({ sheetRows } = {}) {
     server.close();
     fs.rmSync(rootDir, { recursive: true, force: true });
   };
-  return { rootDir, configPath, config, sheets, runs, request, close };
+  return { rootDir, configPath, config, sheets, runs, request, close, logs };
 }
 
 test('applyManual tính lại trạng thái theo duyệt tay', () => {
@@ -213,6 +216,109 @@ test('giao diện: chặn Host/Origin lạ và yêu cầu không phải JSON', a
     const form = await t.request('POST', '/api/run', { headers: { 'content-type': 'application/x-www-form-urlencoded' } });
     assert.equal(form.status, 415);
     assert.equal(t.runs.length, 0);
+  } finally {
+    t.close();
+  }
+});
+
+const PUBLIC = 'https://minigame.drnatro.net';
+// Google giả: mã "google:<gmail>" là hợp lệ, còn lại bị từ chối.
+const fakeGoogle = async (credential) => {
+  const m = /^google:(.+)$/.exec(credential);
+  if (!m) throw new Error('Chữ ký mã đăng nhập không hợp lệ.');
+  return { email: m[1], name: `Tên ${m[1]}`, sub: m[1] };
+};
+const remote = (extra = {}) => ({ host: 'minigame.drnatro.net', 'cf-ray': 'abc-SIN', 'cf-connecting-ip': '203.0.113.5', ...extra });
+
+async function login(t, email) {
+  const res = await t.request('POST', '/api/login', { body: { credential: `google:${email}` }, headers: remote({ origin: PUBLIC }) });
+  const cookie = (res.headers['set-cookie'] || [])[0]?.split(';')[0] || '';
+  return { res, cookie };
+}
+
+test('đăng nhập Google qua Tunnel: khách chỉ thấy trang đăng nhập, Gmail trong danh sách vào được', async () => {
+  const t = await setup({ publicUrl: PUBLIC, allowedEmails: ['Lan@gmail.com'], verifyGoogle: fakeGoogle });
+  try {
+    const page = await t.request('GET', '/', { headers: remote() });
+    assert.equal(page.status, 200);
+    assert.match(page.text, /Đăng nhập bằng Google/);
+    assert.equal((await t.request('GET', '/api/data', { headers: remote() })).status, 401);
+    assert.equal((await t.request('GET', '/api/login-config', { headers: remote() })).json().clientId, '');
+    // Tunnel đổi Host thành 127.0.0.1 nhưng vẫn có header của Cloudflare: vẫn là khách.
+    assert.equal((await t.request('GET', '/api/data', { headers: { 'cf-ray': 'abc-SIN' } })).status, 401);
+    // Mã Google giả bị từ chối.
+    const fake = await t.request('POST', '/api/login', { body: { credential: 'gia-mao' }, headers: remote({ origin: PUBLIC }) });
+    assert.equal(fake.status, 401);
+
+    const { res, cookie } = await login(t, 'lan@gmail.com');
+    assert.equal(res.status, 200, res.text);
+    assert.match(res.headers['set-cookie'][0], /HttpOnly; Secure; SameSite=Lax/);
+    const data = await t.request('GET', '/api/data', { headers: remote({ cookie }) });
+    assert.equal(data.status, 200, data.text);
+    assert.deepEqual(data.json().viewer, { remote: true, email: 'lan@gmail.com', admin: false });
+
+    const manual = await t.request('POST', '/api/manual', {
+      body: { uid: '1002', decision: 'OK', note: 'đã xem share' },
+      headers: remote({ cookie, origin: PUBLIC }),
+    });
+    assert.equal(manual.status, 200, manual.text);
+    assert.ok(t.logs.some((l) => l.includes('lan@gmail.com') && l.includes('1002') && l.includes('OK')), 'nhật ký ghi Gmail người duyệt');
+    // Trang khác lợi dụng cookie đăng nhập cũng không gửi lệnh vào được (Origin lạ).
+    assert.equal((await t.request('POST', '/api/run', { body: {}, headers: remote({ cookie, origin: 'https://evil.example' }) })).status, 403);
+
+    // Người từ xa không xem/cấp quyền được danh sách Gmail.
+    assert.equal((await t.request('GET', '/api/visitors', { headers: remote({ cookie }) })).status, 403);
+    assert.equal((await t.request('POST', '/api/visitors', { body: { email: 'x@gmail.com', status: 'allowed' }, headers: remote({ cookie, origin: PUBLIC }) })).status, 403);
+
+    // Đăng xuất: cookie cũ hết hiệu lực.
+    await t.request('POST', '/api/logout', { body: {}, headers: remote({ cookie, origin: PUBLIC }) });
+    assert.equal((await t.request('GET', '/api/data', { headers: remote({ cookie }) })).status, 401);
+  } finally {
+    t.close();
+  }
+});
+
+test('đăng nhập Google: Gmail lạ được ghi lại và chờ cấp quyền; chặn là mất quyền ngay', async () => {
+  const t = await setup({ publicUrl: PUBLIC, verifyGoogle: fakeGoogle });
+  try {
+    const first = await login(t, 'nguoi.la@gmail.com');
+    assert.equal(first.res.status, 403);
+    assert.equal(first.res.json().status, 'pending');
+    assert.equal(first.cookie, '', 'chưa được phép thì không có phiên');
+
+    // Trên máy chạy tool: thấy Gmail đang chờ, bấm Cho phép.
+    const list = (await t.request('GET', '/api/visitors')).json().visitors;
+    assert.deepEqual(list.map((v) => [v.email, v.status, v.count]), [['nguoi.la@gmail.com', 'pending', 1]]);
+    assert.equal((await t.request('GET', '/api/data')).json().pendingVisitors, 1);
+    const allow = await t.request('POST', '/api/visitors', { body: { email: 'nguoi.la@gmail.com', status: 'allowed' } });
+    assert.equal(allow.status, 200, allow.text);
+
+    const second = await login(t, 'nguoi.la@gmail.com');
+    assert.equal(second.res.status, 200);
+    assert.equal((await t.request('GET', '/api/data', { headers: remote({ cookie: second.cookie }) })).status, 200);
+
+    // Chặn: phiên đang mở bị cắt, đăng nhập lại cũng không được.
+    await t.request('POST', '/api/visitors', { body: { email: 'nguoi.la@gmail.com', status: 'blocked' } });
+    assert.equal((await t.request('GET', '/api/data', { headers: remote({ cookie: second.cookie }) })).status, 401);
+    const third = await login(t, 'nguoi.la@gmail.com');
+    assert.equal(third.res.status, 403);
+    assert.equal(third.res.json().status, 'blocked');
+    assert.ok(t.logs.some((l) => l.includes('nguoi.la@gmail.com') && l.includes('đăng nhập bằng Google')), 'nhật ký ghi lần đăng nhập');
+  } finally {
+    t.close();
+  }
+});
+
+test('giao diện: chưa cấu hình đăng nhập Google thì chặn mọi truy cập qua Tunnel', async () => {
+  const t = await setup();
+  try {
+    const res = await t.request('GET', '/api/data', { headers: { 'cf-connecting-ip': '203.0.113.5' } });
+    assert.equal(res.status, 403);
+    assert.match(res.json().error, /googleClientId/);
+    // Tunnel gửi Host là tên miền công khai nhưng chưa khai báo publicUrl: báo rõ cần điền gì.
+    const named = await t.request('GET', '/', { headers: { host: 'minigame.drnatro.net', 'cf-ray': 'abc-SIN' } });
+    assert.equal(named.status, 403);
+    assert.match(named.json().error, /ui.publicUrl/);
   } finally {
     t.close();
   }

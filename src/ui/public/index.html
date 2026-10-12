@@ -30,6 +30,8 @@
     <div class="topbar-right">
       <span class="pill" id="run-pill">Đang tải…</span>
       <span class="countdown" id="countdown"></span>
+      <span class="viewer" id="viewer" hidden></span>
+      <button type="button" class="btn btn-ghost btn-small" id="logout-btn" hidden>Đăng xuất</button>
       <button type="button" class="theme-btn" id="theme-btn"></button>
     </div>
   </header>
@@ -83,6 +85,7 @@
         <button role="tab" class="tab" data-tab="records" aria-selected="true">Người tham gia <span class="count" id="tab-count-records"></span></button>
         <button role="tab" class="tab" data-tab="rejected" aria-selected="false">Không đủ tag <span class="count" id="tab-count-rejected"></span></button>
         <button role="tab" class="tab" data-tab="logs" aria-selected="false">Nhật ký</button>
+        <button role="tab" class="tab" data-tab="visitors" aria-selected="false" id="tab-visitors" hidden>Người truy cập <span class="count" id="tab-count-visitors"></span></button>
       </nav>
 
       <div class="tab-panel" id="panel-records">
@@ -143,6 +146,32 @@
           <span class="muted" id="log-file"></span>
         </div>
         <pre class="log" id="log"></pre>
+      </div>
+
+      <div class="tab-panel" id="panel-visitors" hidden>
+        <div class="toolbar">
+          <span class="muted" id="visitors-note">Gmail mới đăng nhập từ xa nằm ở "Chờ cấp quyền" cho tới khi bạn bấm Cho phép.</span>
+          <form id="visitor-form" class="row visitor-form">
+            <input id="visitor-email" type="email" placeholder="Thêm Gmail được phép" autocomplete="off" spellcheck="false">
+            <button type="submit" class="btn">Cho phép</button>
+          </form>
+        </div>
+        <div class="table-wrap">
+          <table class="grid">
+            <thead>
+              <tr>
+                <th>Gmail</th>
+                <th>Tên Google</th>
+                <th>Trạng thái</th>
+                <th>Lần đầu</th>
+                <th>Gần nhất</th>
+                <th class="num">Số lần</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="visitors-body"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>

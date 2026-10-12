@@ -13,6 +13,7 @@ import { createSheetsClient, TABS } from './sheets.js';
 import { runOnce, isFrozen } from './run.js';
 import { sleep, formatDateTime } from './util.js';
 import { createUiServer } from './ui/server.js';
+import { createGoogleVerifier } from './ui/jwt.js';
 
 const command = process.argv[2] || 'help';
 
@@ -77,8 +78,11 @@ function openBrowser(url) {
 }
 
 async function ui(config, logger) {
+  // --no-open: dùng khi giao diện tự bật cùng Windows, không mở trình duyệt mỗi lần đăng nhập.
+  const shouldOpen = config.ui.openBrowser && !process.argv.includes('--no-open');
   const sheets = createSheetsClient(config.serviceAccountPath);
-  const server = createUiServer({ config, rootDir: ROOT_DIR, configPath: CONFIG_PATH, sheets, logger });
+  const verifyGoogle = config.ui.googleClientId ? createGoogleVerifier({ clientId: config.ui.googleClientId }) : null;
+  const server = createUiServer({ config, rootDir: ROOT_DIR, configPath: CONFIG_PATH, sheets, logger, verifyGoogle });
   const url = `http://127.0.0.1:${config.ui.port}/`;
   try {
     await new Promise((resolve, reject) => {
@@ -88,11 +92,18 @@ async function ui(config, logger) {
   } catch (err) {
     if (err.code !== 'EADDRINUSE') throw err;
     logger.warn(`Cổng ${config.ui.port} đang được dùng, có thể giao diện đã mở ở cửa sổ khác: ${url}`);
-    if (config.ui.openBrowser) openBrowser(url);
+    if (shouldOpen) openBrowser(url);
     return;
   }
-  logger.info(`Giao diện quản lý: ${url} (giữ cửa sổ này mở trong lúc dùng, nhấn Ctrl+C để tắt).`);
-  if (config.ui.openBrowser) openBrowser(url);
+  logger.info(
+    process.argv.includes('--no-open')
+      ? `Giao diện quản lý (chạy ẩn): ${url}. Khởi động lại bằng scripts\\restart-ui.ps1.`
+      : `Giao diện quản lý: ${url} (giữ cửa sổ này mở trong lúc dùng, nhấn Ctrl+C để tắt).`,
+  );
+  if (config.ui.publicUrl) {
+    logger.info(`Team truy cập từ xa: ${config.ui.publicUrl} (qua Cloudflare Tunnel, đăng nhập bằng Google; Gmail mới phải được cho phép trên máy này).`);
+  }
+  if (shouldOpen) openBrowser(url);
 }
 
 function help() {
