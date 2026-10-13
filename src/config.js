@@ -20,8 +20,12 @@ const DEFAULTS = {
     minDelayMs: 1500,
     maxDelayMs: 4000,
     minCommentRatio: 0.8,
+    maxShareChecksPerRun: 30,
+    shareCacheHours: 3,
+    shareScrollSteps: 4,
   },
   memberCheck: 'auto',
+  shareCheck: 'auto',
   debug: { dumpGraphql: false },
   ui: { port: 4321, openBrowser: true, publicUrl: '', googleClientId: '', allowedEmails: [] },
 };
@@ -64,7 +68,7 @@ export function loadConfig({ requirePost = true } = {}) {
     problems.push('serviceAccountFile phải trỏ tới file JSON của Google Service Account.');
   }
   if (Number.isNaN(Date.parse(config.freezeAt || ''))) {
-    problems.push('freezeAt phải là ngày giờ hợp lệ, ví dụ 2026-10-21T00:00:00+07:00.');
+    problems.push('freezeAt phải là ngày giờ hợp lệ, ví dụ 2026-10-19T19:00:00+07:00.');
   }
   if (!(config.finalRunLeadMinutes >= 0)) {
     problems.push('finalRunLeadMinutes phải là số phút >= 0 (0 để tắt lần chạy chốt cuối).');
@@ -89,6 +93,9 @@ export function loadConfig({ requirePost = true } = {}) {
   }
   if (!Array.isArray(config.ui.allowedEmails)) {
     problems.push('ui.allowedEmails phải là danh sách Gmail, ví dụ ["ten@gmail.com"].');
+  }
+  if (!['auto', 'off'].includes(config.shareCheck)) {
+    problems.push('shareCheck phải là "auto" (kiểm tra share trên trang cá nhân) hoặc "off".');
   }
   if (!(config.rules.requiredTags >= 1)) {
     problems.push('rules.requiredTags phải là số >= 1.');

@@ -4,6 +4,8 @@ import path from 'node:path';
 import { attachGraphqlCollector, extractComments, extractEmbeddedJson } from './graphql.js';
 import { looksLoggedOut } from '../browser.js';
 import { randomDelay, sleep } from '../util.js';
+import { debugScreenshot } from './debug.js';
+import { postScope, countVisibleDialogs, closeExtraDialogs } from './dialogs.js';
 
 // Nút mở rộng bình luận / phản hồi (tiếng Việt và tiếng Anh).
 const EXPAND_KEYWORD = /(bình luận|comment|phản hồi|câu trả lời|repl(y|ies))/i;
@@ -26,9 +28,9 @@ export function isReplyExpandLabel(name) {
 }
 
 async function scrollContainer(page) {
-  const dialog = page.locator('div[role="dialog"]').last();
+  const dialog = await postScope(page);
   try {
-    if (await dialog.isVisible({ timeout: 500 })) {
+    if (dialog !== page) {
       const box = await dialog.boundingBox();
       if (box) await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       await page.mouse.wheel(0, 2500);
@@ -133,9 +135,13 @@ export async function collectPostComments(page, config, logger, { rootDir }) {
     logger.warn(`Không đọc được JSON nhúng: ${err.message}`);
   }
 
-  await switchToAllComments(page, logger);
+  if (!(await switchToAllComments(page, logger))) {
+    await debugScreenshot(page, rootDir, 'khong-chuyen-duoc-tat-ca-binh-luan', logger);
+  }
 
   const { maxExpandClicks, expandReplies, minDelayMs, maxDelayMs } = config.limits;
+  // Số hộp thoại lúc bình thường (bài mở dạng hộp thoại thì là 1). Bấm "Xem thêm" mà lỡ mở hộp phụ thì đóng ngay.
+  const baseDialogs = await countVisibleDialogs(page);
   let clicks = 0;
   let idleRounds = 0;
   let rounds = 0;
@@ -152,6 +158,10 @@ export async function collectPostComments(page, config, logger, { rootDir }) {
         clickedThisRound += 1;
         logger.debug(`Bấm "${name}" (${clicks})`);
         await randomDelay(minDelayMs, maxDelayMs);
+        if ((await countVisibleDialogs(page)) > baseDialogs) {
+          logger.debug(`Bấm "${name}" mở ra hộp phụ, đóng lại.`);
+          await closeExtraDialogs(page, baseDialogs);
+        }
       } catch {
         // Nút có thể đã biến mất sau khi tải thêm.
       }

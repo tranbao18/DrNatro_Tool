@@ -14,10 +14,21 @@ import { runOnce, isFrozen } from './run.js';
 import { sleep, formatDateTime } from './util.js';
 import { createUiServer } from './ui/server.js';
 import { createGoogleVerifier } from './ui/jwt.js';
+import { acquireRunLock, releaseRunLock } from './lock.js';
 
 const command = process.argv[2] || 'help';
 
 async function login(config, logger) {
+  // Giữ khoá chống trùng: lượt quét tự động không mở cùng hồ sơ trình duyệt trong lúc đang đăng nhập.
+  acquireRunLock(ROOT_DIR);
+  try {
+    await loginInBrowser(config, logger);
+  } finally {
+    releaseRunLock(ROOT_DIR);
+  }
+}
+
+async function loginInBrowser(config, logger) {
   const context = await launchBrowser(config, { headless: false });
   const page = context.pages()[0] || (await context.newPage());
   await page.goto('https://www.facebook.com/', { waitUntil: 'domcontentloaded' });
@@ -25,7 +36,7 @@ async function login(config, logger) {
   if (existing) {
     logger.info(`Trình duyệt đã đăng nhập sẵn tài khoản ID ${existing}. Đóng cửa sổ để kết thúc, hoặc đăng xuất và đăng nhập tài khoản khác.`);
   } else {
-    logger.info('Hãy đăng nhập Facebook bằng TÀI KHOẢN PHỤ (admin group) trong cửa sổ vừa mở. Tool sẽ tự nhận khi đăng nhập xong.');
+    logger.info('Hãy đăng nhập Facebook (tài khoản quản trị group) trong cửa sổ vừa mở. Tool sẽ tự nhận khi đăng nhập xong.');
   }
   for (let i = 0; i < 600; i += 1) {
     await sleep(2000);

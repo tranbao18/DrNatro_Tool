@@ -6,6 +6,7 @@ import { launchBrowser, assertLoggedIn } from './browser.js';
 import { collectPostComments } from './fb/post.js';
 import { collectShares } from './fb/shares.js';
 import { checkMembership, cachedMemberStatus } from './fb/members.js';
+import { checkProfileShare, cachedShareStatus, postIdFromUrl } from './fb/profileShares.js';
 import { groupByUser, buildRecords, summarize, STATUS } from './rules.js';
 import {
   createSheetsClient,
@@ -168,7 +169,7 @@ async function scan(config, logger, state, startedAt) {
 
   let context;
   let lastError = '';
-  const stats = { commentCount: 0, userCount: 0, shareCount: 0, shareNote: '', memberChecks: 0 };
+  const stats = { commentCount: 0, userCount: 0, shareCount: 0, shareNote: '', memberChecks: 0, shareChecks: 0 };
   try {
     context = await launchBrowser(config);
     const page = context.pages()[0] || (await context.newPage());
@@ -205,6 +206,7 @@ async function scan(config, logger, state, startedAt) {
 
     const shareResult = await collectShares(page, config, logger, { rootDir: ROOT_DIR });
     stats.shareCount = shareResult.sharers.size;
+    stats.shareTotal = shareResult.shareTotal;
     stats.shareNote = shareResult.note;
 
     const users = groupByUser(comments.values(), config.rules);
@@ -233,6 +235,52 @@ async function scan(config, logger, state, startedAt) {
       for (const uid of toCheck.slice(batch.length)) memberStatus[uid] = state.members[uid]?.status || 'unknown';
     }
 
+    // Kiểm tra share công khai trên trang cá nhân cho người đủ tag chưa có trong danh sách chia sẻ.
+    // Đã thấy share thì nhớ luôn (cho đúng bài này); chưa thấy / không xem được thì kiểm tra lại sau shareCacheHours.
+    const profileShares = {};
+    const postId = postIdFromUrl(config.postUrl);
+    const applyProfileShare = (uid, r) => {
+      if (r.status === 'shared' || r.status === 'shared_private') {
+        shareResult.sharers.set(uid, {
+          id: uid,
+          name: users.get(uid)?.author?.name || '',
+          privacy: r.privacy || (r.status === 'shared' ? 'Công khai' : ''),
+          isPublic: r.status === 'shared',
+          source: 'profile',
+        });
+      } else {
+        profileShares[uid] = r.status;
+      }
+    };
+    if (config.shareCheck === 'auto' && postId) {
+      const shareQueue = [];
+      for (const [uid, entry] of users) {
+        if (!entry.best || shareResult.sharers.has(uid)) continue;
+        const cached = cachedShareStatus(state, uid, postId, config.limits.shareCacheHours);
+        if (cached) applyProfileShare(uid, cached);
+        else shareQueue.push(uid);
+      }
+      const batch = shareQueue.slice(0, config.limits.maxShareChecksPerRun);
+      if (batch.length) logger.info(`Kiểm tra share trên trang cá nhân: ${batch.length}/${shareQueue.length} user (phần còn lại ở lần chạy sau).`);
+      for (const uid of batch) {
+        const result = await checkProfileShare(page, config, uid, postId, logger);
+        state.profileShares[uid] = { postId, ...result, checkedAt: new Date().toISOString() };
+        applyProfileShare(uid, state.profileShares[uid]);
+        stats.shareChecks += 1;
+        saveState(ROOT_DIR, state);
+      }
+      // Người chưa tới lượt kiểm tra lần này: dùng kết quả cũ nếu có.
+      for (const uid of shareQueue.slice(batch.length)) {
+        const old = state.profileShares[uid];
+        if (old?.postId === postId) applyProfileShare(uid, old);
+      }
+      const confirmed = [...shareResult.sharers.values()].filter((s) => s.source === 'profile' && s.isPublic).length;
+      logger.info(`Share công khai xác nhận qua trang cá nhân: ${confirmed} người.`);
+    } else if (config.shareCheck === 'auto' && !postId) {
+      logger.warn('Không đọc được mã bài từ postUrl, bỏ qua kiểm tra share trên trang cá nhân.');
+    }
+    stats.shareCount = shareResult.sharers.size;
+
     // Đọc cột duyệt tay và gộp với bản lưu trong state.json, để user tạm biến khỏi sheet vẫn giữ quyết định.
     const existingMain = await sheets.readRange(config.sheetId, `'${TABS.MAIN}'!A1:R5000`);
     state.manual = mergeManual(state.manual, existingMain);
@@ -244,6 +292,7 @@ async function scan(config, logger, state, startedAt) {
       memberStatus,
       manual: state.manual,
       sharesAvailable: shareResult.found,
+      profileShares,
       rules: config.rules,
       now: new Date(),
     });

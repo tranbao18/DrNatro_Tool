@@ -8,7 +8,7 @@ Một user được tính khi có **một bình luận** thoả:
 
 1. Tag **5 người khác nhau** trong cùng bình luận (tag chủ post tính, tag chính mình không tính).
 2. Là **thành viên group** (tool tự kiểm tra bằng tài khoản admin).
-3. Đã **share công khai** bài viết (tool đối chiếu danh sách "Người đã chia sẻ"; trường hợp không thấy sẽ để team duyệt tay).
+3. Đã **share công khai** bài viết (tool đối chiếu danh sách "Người đã chia sẻ", hoặc tìm bài share trên trang cá nhân công khai của từng người; không thấy thì để team duyệt tay).
 
 Nếu user có nhiều bình luận đủ tag, tool lấy bình luận có **tổng tương tác cao nhất** (lượt thích + lượt trả lời).
 
@@ -60,9 +60,9 @@ Copy `config.example.json` thành `config.json` rồi sửa:
 | `postUrl` | Link bài viết minigame (bắt buộc khi chạy quét) |
 | `groupUrl` | Link group |
 | `sheetId` | Chuỗi giữa `/d/` và `/edit` trong link Google Sheet |
-| `freezeAt` | Mốc chốt. Sau mốc này tool không cập nhật nữa. Mặc định `2026-10-21T00:00:00+07:00` (hết ngày 20/10) |
+| `freezeAt` | Mốc chốt. Sau mốc này tool không cập nhật nữa. Minigame 20/10 chốt `2026-10-19T19:00:00+07:00` (19h ngày 19/10, theo bài đăng) |
 | `intervalMinutes` | Chu kỳ chạy ở chế độ watch, mặc định 60 |
-| `finalRunLeadMinutes` | Lần chạy chốt cuối bắt đầu trước `freezeAt` bao nhiêu phút, mặc định 15 (tức 23:45 ngày 20/10). Ghi `0` để tắt |
+| `finalRunLeadMinutes` | Lần chạy chốt cuối bắt đầu trước `freezeAt` bao nhiêu phút, mặc định 15 (tức 18:45 ngày 19/10). Ghi `0` để tắt |
 | `rules.requiredTags` | Số người phải tag, mặc định 5 |
 | `rules.countSelfTag` | Tính tag chính mình hay không, mặc định `false` |
 | `rules.includeReplies` | Tính cả bình luận trả lời làm bài dự thi hay không, mặc định `false` |
@@ -71,6 +71,10 @@ Copy `config.example.json` thành `config.json` rồi sửa:
 | `limits.maxMemberChecksPerRun` | Số user kiểm tra thành viên tối đa mỗi lần chạy, phần còn lại chạy lần sau |
 | `limits.minCommentRatio` | Nếu số bình luận đọc được thấp hơn tỉ lệ này so với lần chạy trước (mặc định `0.8` = 80%), tool coi là Facebook tải thiếu và không ghi đè sheet. Ghi `0` để tắt |
 | `memberCheck` | `auto` để tự kiểm tra thành viên, `off` để chỉ duyệt tay |
+| `shareCheck` | `auto` để tự kiểm tra share công khai trên trang cá nhân của từng người, `off` để chỉ duyệt tay |
+| `limits.maxShareChecksPerRun` | Số trang cá nhân tối đa mở để kiểm tra share mỗi lần chạy (mặc định 30), phần còn lại chạy lần sau |
+| `limits.shareCacheHours` | Người chưa thấy share được kiểm tra lại sau bao nhiêu giờ (mặc định 3). Người đã thấy share công khai thì không kiểm tra lại |
+| `limits.shareScrollSteps` | Số lần cuộn tường cá nhân khi tìm bài share (mặc định 4) |
 | `debug.dumpGraphql` | `true` để lưu dữ liệu thô vào `data/debug/` khi cần dev xem lỗi |
 | `ui.port` | Cổng của giao diện quản lý, mặc định 4321 |
 | `ui.openBrowser` | Tự mở trình duyệt khi chạy `npm run ui`, mặc định `true` |
@@ -163,11 +167,11 @@ Bảng được sắp xếp lại sau mỗi lần chạy. Khi nhập Duyệt tay
 
 ## Chốt kết quả
 
-Tool cập nhật đến hết ngày 20/10/2026:
+Minigame chốt tham gia lúc **19h ngày 19/10/2026** (theo bài đăng), tool cập nhật tới mốc đó:
 
-- Lúc 23:45 ngày 20/10 (`freezeAt` trừ `finalRunLeadMinutes`) tool chạy **lần chốt cuối**. Lần chạy nào bắt đầu trong khoảng 23:45 đến trước 00:00 đều là lần chốt cuối. Chạy xong, tool ghi "ĐÃ CHỐT" vào tab Hệ thống và không cập nhật nữa, kể cả khi còn vài phút mới tới 00:00.
-- Nếu lần chốt cuối bị lỗi, lần chạy tiếp theo trước 00:00 sẽ thử lại. Từ 00:00 ngày 21/10/2026, mỗi lần chạy chỉ ghi "ĐÃ CHỐT" và không sửa số liệu.
-- Lần chạy bắt đầu trước 00:00 nhưng ghi xong sau 00:00 vẫn tính vào ngày 20/10 trong tab Lịch sử. Dòng "Lần chạy gần nhất" ở tab Hệ thống ghi cả giờ bắt đầu và giờ xong.
+- Lúc 18:45 ngày 19/10 (`freezeAt` trừ `finalRunLeadMinutes`) tool chạy **lần chốt cuối**. Lần chạy nào bắt đầu trong khoảng 18:45 đến trước 19:00 đều là lần chốt cuối. Chạy xong, tool ghi "ĐÃ CHỐT" vào tab Hệ thống và không cập nhật nữa, kể cả khi còn vài phút mới tới 19:00.
+- Nếu lần chốt cuối bị lỗi, lần chạy tiếp theo trước 19:00 sẽ thử lại. Từ 19:00 ngày 19/10/2026, mỗi lần chạy chỉ ghi "ĐÃ CHỐT" và không sửa số liệu.
+- Lần chạy bắt đầu trước mốc chốt nhưng ghi xong sau mốc vẫn tính theo giờ bắt đầu. Dòng "Lần chạy gần nhất" ở tab Hệ thống ghi cả giờ bắt đầu và giờ xong.
 
 Muốn đổi mốc, sửa `freezeAt` trong `config.json` (rồi chạy lại `setup-schedule.ps1` nếu dùng lịch).
 
@@ -175,7 +179,7 @@ Muốn đổi mốc, sửa `freezeAt` trong `config.json` (rồi chạy lại `s
 
 1. Mở bài viết bằng Chromium (Playwright), chuyển sang "Tất cả bình luận", bấm "Xem thêm bình luận" và "Xem phản hồi" cho tới khi hết.
 2. Đọc dữ liệu từ phản hồi GraphQL của Facebook thay vì đọc giao diện, nên lấy được ID user chính xác, số người được tag, lượt thích, lượt trả lời.
-3. Mở hộp thoại "Người đã chia sẻ bài viết" để lấy danh sách người share và chế độ riêng tư.
+3. Mở hộp thoại "Người đã chia sẻ bài viết" để lấy danh sách người share. Nếu Facebook hiển thị thanh gọn (không có hộp thoại này), tool đọc số lượt chia sẻ rồi **mở trang cá nhân công khai của từng người đủ tag** và tìm bài do chính họ đăng chia sẻ bài minigame, kèm chế độ riêng tư của bài share (chỉ "Công khai" mới tính). Người đã thấy share công khai được ghi nhớ; người chưa thấy được kiểm tra lại sau `limits.shareCacheHours` giờ.
 4. Với mỗi user đủ tag, mở trang hồ sơ thành viên trong group `groups/<id>/user/<uid>` để xác nhận là thành viên. Nếu trang vừa có dấu hiệu là thành viên vừa có chữ kiểu "không khả dụng"/"rời nhóm" (thường nằm trong bài viết của chính họ), tool không tự loại mà để CHỜ DUYỆT. Kết quả cache 24 giờ trong `data/state.json`.
 5. Nếu số bình luận đọc được tụt mạnh so với lần trước, tool dừng và giữ nguyên sheet (xem mục Lưu ý).
 6. Đọc cột duyệt tay hiện có, gộp với bản lưu trong `data/state.json`, tính trạng thái, ghi lại 4 tab và lưu bản kết quả vào `data/results.json` cho giao diện quản lý.
@@ -185,6 +189,7 @@ Muốn đổi mốc, sửa `freezeAt` trong `config.json` (rồi chạy lại `s
 - **Facebook đổi giao diện** khiến tool không bấm được nút hoặc không đọc được dữ liệu: bật `debug.dumpGraphql: true`, chạy lại, gửi thư mục `data/debug/` cho dev để chỉnh bộ đọc.
 - **Không đọc được bình luận nào**: kiểm tra `postUrl`, tài khoản có xem được bài không, hoặc đã bị đăng xuất (chạy `npm run login`).
 - **Lỗi "Chỉ đọc được X bình luận, ít hơn nhiều so với Y ở lần chạy trước"**: tool nghi Facebook tải thiếu nên giữ nguyên sheet. Nếu 3 lần liên tiếp vẫn thấp, tool coi là bình luận bị xoá thật và cập nhật bình thường. Nếu chắc chắn bình luận đã bị xoá và muốn cập nhật ngay, tạm đặt `limits.minCommentRatio` thành `0` rồi chạy `npm start`.
+- **Không đọc được danh sách người share**: Facebook có giao diện gọn (thanh "👍 N · 💬 N · ↗ N") cho một số trình duyệt, kể cả trình duyệt của tool, không có chỗ mở danh sách người chia sẻ. Khi đó tool tự kiểm tra trên trang cá nhân từng người (`shareCheck: "auto"`). Người share ở chế độ Bạn bè, khoá trang cá nhân, hoặc bài share bị trôi quá sâu trên tường sẽ ở "Chờ duyệt" để team kiểm tra tay. Khi tool không tìm thấy phần chia sẻ hoặc không chuyển được sang "Tất cả bình luận", ảnh chụp màn hình để chẩn đoán được lưu ở `data/debug/`.
 - **Lỗi 403 từ Google**: chưa share sheet cho email service account với quyền Editor.
 - **Tài khoản bị checkpoint**: đăng nhập lại trong `npm run login`, giảm tần suất bằng `intervalMinutes`, giảm `limits.maxMemberChecksPerRun`.
 - Tool chỉ dùng tài khoản Facebook đã đăng nhập trong trình duyệt, không lưu mật khẩu. File `service-account.json`, `config.json`, thư mục `data/` và `logs/` đã nằm trong `.gitignore`, không được đưa lên Git.

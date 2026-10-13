@@ -72,3 +72,14 @@ export function parseGroupId(groupUrl) {
 export function profileUrlFor(userId) {
   return `https://www.facebook.com/profile.php?id=${userId}`;
 }
+
+/** Số dạng gọn của Facebook: "9" -> 9, "1,2K" / "1,2 N" -> 1200, "1,5 Tr" / "1.5M" -> 1500000. Không đọc được -> null. */
+export function parseCompactNumber(text) {
+  const m = String(text || '').trim().match(/^(\d+(?:[.,]\d+)?)\s*(K|N|Tr|M)?$/i);
+  if (!m) return null;
+  const unit = (m[2] || '').toLowerCase();
+  const mult = unit === 'k' || unit === 'n' ? 1000 : unit === 'tr' || unit === 'm' ? 1_000_000 : 1;
+  // Không có đơn vị thì "1.234" / "1,234" là dấu phân cách hàng nghìn; có đơn vị thì là dấu thập phân.
+  const value = mult === 1 ? Number(m[1].replace(/[.,]/g, '')) : Number(m[1].replace(',', '.'));
+  return Math.round(value * mult);
+}

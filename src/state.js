@@ -7,6 +7,7 @@ import path from 'node:path';
 const EMPTY = {
   members: {},
   manual: {},
+  profileShares: {},
   lastRun: null,
   lastError: null,
   lastCommentCount: null,
@@ -34,9 +35,9 @@ function writeJsonAtomic(rootDir, name, value) {
 export function loadState(rootDir) {
   try {
     const raw = readJson(path.join(rootDir, 'data', 'state.json'));
-    return { ...EMPTY, ...raw, members: raw.members || {}, manual: raw.manual || {} };
+    return { ...EMPTY, ...raw, members: raw.members || {}, manual: raw.manual || {}, profileShares: raw.profileShares || {} };
   } catch {
-    return { ...EMPTY, members: {}, manual: {} };
+    return { ...EMPTY, members: {}, manual: {}, profileShares: {} };
   }
 }
 

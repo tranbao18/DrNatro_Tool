@@ -282,7 +282,8 @@ function renderChart() {
   $('chart-foot').innerHTML = results
     ? [
         [stats.commentCount, 'bình luận quét được'],
-        [stats.shareCount, 'người đã share'],
+        ...(stats.shareTotal != null ? [[stats.shareTotal, 'lượt chia sẻ trên bài']] : []),
+        [stats.shareCount, 'người xác nhận đã share'],
         [records.length, 'người đủ tag'],
         [rejected.length, 'không đủ tag'],
       ]
@@ -475,6 +476,9 @@ function renderAlerts() {
       body: `Share hoặc thành viên chưa xác nhận tự động được.${conflicts ? ` ${num(conflicts)} người có trang thành viên mâu thuẫn, nên mở hồ sơ kiểm tra.` : ''}`,
       action: ['pending', 'Xem danh sách'],
     });
+  }
+  if (results && !results.sharesAvailable && results.stats?.shareNote) {
+    items.push({ kind: 'info', title: 'Cách kiểm tra share', body: results.stats.shareNote });
   }
   if (results && config.postUrl && results.postUrl && results.postUrl !== config.postUrl) {
     items.push({ kind: 'info', title: 'Kết quả đang hiển thị là của bài viết cũ', body: 'Bấm Chạy quét ngay để quét bài viết mới.' });

@@ -4,7 +4,7 @@
   "sheetId": "1qezyy3dPl9a9KrNh7XO-t7YfeYJ3-ZTmy31E_nxUbwQ",
   "serviceAccountFile": "./service-account.json",
   "timezone": "Asia/Ho_Chi_Minh",
-  "freezeAt": "2026-10-21T00:00:00+07:00",
+  "freezeAt": "2026-10-19T19:00:00+07:00",
   "intervalMinutes": 60,
   "finalRunLeadMinutes": 15,
   "rules": {
@@ -25,9 +25,13 @@
     "memberCacheHours": 24,
     "minDelayMs": 1500,
     "maxDelayMs": 4000,
-    "minCommentRatio": 0.8
+    "minCommentRatio": 0.8,
+    "maxShareChecksPerRun": 30,
+    "shareCacheHours": 3,
+    "shareScrollSteps": 4
   },
   "memberCheck": "auto",
+  "shareCheck": "auto",
   "debug": {
     "dumpGraphql": false
   },

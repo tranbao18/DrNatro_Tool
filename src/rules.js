@@ -82,7 +82,8 @@ export function groupByUser(comments, rules) {
  * @param {object} input
  * @param {string} input.manualDecision 'OK' | 'LOẠI' | ''
  * @param {string} input.member member | not_member | unknown
- * @param {string} input.shareAuto shared | shared_private | not_found
+ * @param {string} input.shareAuto shared | shared_private | not_found | not_found_profile (đã xem tường, không thấy)
+ *   | profile_unknown (không xem được trang cá nhân)
  * @param {string} [input.sharePrivacy] chế độ riêng tư của bài share
  * @param {boolean} input.sharesAvailable hộp thoại share có đọc được không
  * @returns {{ status: string, reasons: string[] }}
@@ -106,6 +107,10 @@ export function decideStatus({ manualDecision, member, shareAuto, sharePrivacy, 
     if (member !== 'member') reasons.push('Thành viên: chưa xác nhận tự động');
     if (shareAuto === 'not_found') {
       reasons.push(sharesAvailable ? 'Share: không thấy trong danh sách chia sẻ công khai' : 'Share: chưa đọc được danh sách chia sẻ');
+    } else if (shareAuto === 'not_found_profile') {
+      reasons.push('Share: không thấy bài chia sẻ công khai trên trang cá nhân');
+    } else if (shareAuto === 'profile_unknown') {
+      reasons.push('Share: không xem được trang cá nhân để kiểm tra');
     } else if (shareAuto === 'shared_private') {
       reasons.push(`Share: có chia sẻ nhưng chế độ "${sharePrivacy}"`);
     }
@@ -121,8 +126,10 @@ export function decideStatus({ manualDecision, member, shareAuto, sharePrivacy, 
  * @param {Record<string, string>} input.memberStatus uid -> member|not_member|unknown
  * @param {Record<string, { decision: string, note: string }>} input.manual uid -> duyệt tay
  * @param {boolean} input.sharesAvailable hộp thoại share có đọc được không
+ * @param {Record<string, string>} [input.profileShares] uid -> not_found | unknown: kết quả xem tường cá nhân
+ *   cho người chưa có trong danh sách chia sẻ (người đã thấy share thì nằm trong `sharers`)
  */
-export function buildRecords({ users, sharers, memberStatus, manual, sharesAvailable, rules, now = new Date() }) {
+export function buildRecords({ users, sharers, memberStatus, manual, sharesAvailable, profileShares, rules, now = new Date() }) {
   const qualifiedList = [];
   const rejectedList = [];
   for (const [uid, entry] of users) {
@@ -150,7 +157,16 @@ export function buildRecords({ users, sharers, memberStatus, manual, sharesAvail
     const best = entry.best;
     const member = memberStatus?.[uid] || 'unknown';
     const share = sharers?.get(uid);
-    const shareAuto = share ? (share.isPublic === false ? 'shared_private' : 'shared') : 'not_found';
+    const profile = profileShares?.[uid];
+    const shareAuto = share
+      ? share.isPublic === false
+        ? 'shared_private'
+        : 'shared'
+      : profile === 'not_found'
+        ? 'not_found_profile'
+        : profile === 'unknown'
+          ? 'profile_unknown'
+          : 'not_found';
     const { status, reasons } = decideStatus({ manualDecision, member, shareAuto, sharePrivacy: share?.privacy, sharesAvailable });
 
     qualifiedList.push({
@@ -168,7 +184,9 @@ export function buildRecords({ users, sharers, memberStatus, manual, sharesAvail
           ? 'Đã share công khai'
           : shareAuto === 'shared_private'
             ? `Có share (${share.privacy || 'không rõ chế độ'})`
-            : 'Chưa xác nhận',
+            : shareAuto === 'not_found_profile'
+              ? 'Chưa thấy share công khai'
+              : 'Chưa xác nhận',
       manualDecision: manualEntry.decision || '',
       manualNote: manualEntry.note || '',
       likes: best.likes ?? 0,
