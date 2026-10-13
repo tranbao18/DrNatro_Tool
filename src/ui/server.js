@@ -91,7 +91,8 @@ function sortRecords(records) {
 }
 
 function defaultStartRun(rootDir) {
-  return spawn(process.execPath, [path.join(rootDir, 'src', 'index.js'), 'run'], {
+  // Team bấm "Chạy quét ngay" là muốn số liệu mới nhất: kiểm tra lại share của người chưa thấy share.
+  return spawn(process.execPath, [path.join(rootDir, 'src', 'index.js'), 'run', '--recheck-shares'], {
     cwd: rootDir,
     stdio: ['ignore', 'pipe', 'pipe'],
   });

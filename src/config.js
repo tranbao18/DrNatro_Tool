@@ -21,7 +21,8 @@ const DEFAULTS = {
     maxDelayMs: 4000,
     minCommentRatio: 0.8,
     maxShareChecksPerRun: 30,
-    shareCacheHours: 3,
+    // Ngắn hơn khoảng cách 1 giờ giữa các lượt quét theo lịch, để mỗi lượt đều kiểm tra lại người chưa thấy share.
+    shareCacheHours: 0.5,
     shareScrollSteps: 4,
   },
   memberCheck: 'auto',

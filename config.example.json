@@ -27,7 +27,7 @@
     "maxDelayMs": 4000,
     "minCommentRatio": 0.8,
     "maxShareChecksPerRun": 30,
-    "shareCacheHours": 3,
+    "shareCacheHours": 0.5,
     "shareScrollSteps": 4
   },
   "memberCheck": "auto",

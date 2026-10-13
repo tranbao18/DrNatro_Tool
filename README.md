@@ -73,7 +73,7 @@ Copy `config.example.json` thành `config.json` rồi sửa:
 | `memberCheck` | `auto` để tự kiểm tra thành viên, `off` để chỉ duyệt tay |
 | `shareCheck` | `auto` để tự kiểm tra share công khai trên trang cá nhân của từng người, `off` để chỉ duyệt tay |
 | `limits.maxShareChecksPerRun` | Số trang cá nhân tối đa mở để kiểm tra share mỗi lần chạy (mặc định 30), phần còn lại chạy lần sau |
-| `limits.shareCacheHours` | Người chưa thấy share được kiểm tra lại sau bao nhiêu giờ (mặc định 3). Người đã thấy share công khai thì không kiểm tra lại |
+| `limits.shareCacheHours` | Người chưa thấy share được kiểm tra lại sau bao nhiêu giờ (mặc định 0.5, tức mỗi lượt quét theo lịch đều kiểm tra lại). Bấm "Chạy quét ngay" trên giao diện thì luôn kiểm tra lại ngay. Người đã thấy share công khai thì không kiểm tra lại |
 | `limits.shareScrollSteps` | Số lần cuộn tường cá nhân khi tìm bài share (mặc định 4) |
 | `debug.dumpGraphql` | `true` để lưu dữ liệu thô vào `data/debug/` khi cần dev xem lỗi |
 | `ui.port` | Cổng của giao diện quản lý, mặc định 4321 |

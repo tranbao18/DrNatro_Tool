@@ -252,11 +252,13 @@ async function scan(config, logger, state, startedAt) {
         profileShares[uid] = r.status;
       }
     };
+    // "Chạy quét ngay" trên giao diện (--recheck-shares): kiểm tra lại mọi người chưa thấy share, không dùng kết quả cũ.
+    const shareCacheHours = process.argv.includes('--recheck-shares') ? 0 : config.limits.shareCacheHours;
     if (config.shareCheck === 'auto' && postId) {
       const shareQueue = [];
       for (const [uid, entry] of users) {
         if (!entry.best || shareResult.sharers.has(uid)) continue;
-        const cached = cachedShareStatus(state, uid, postId, config.limits.shareCacheHours);
+        const cached = cachedShareStatus(state, uid, postId, shareCacheHours);
         if (cached) applyProfileShare(uid, cached);
         else shareQueue.push(uid);
       }
